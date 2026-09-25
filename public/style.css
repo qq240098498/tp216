@@ -312,6 +312,8 @@ code {
 .tag.is-serious { background: var(--orange); border-color: var(--orange); color: #fff; }
 .tag.is-ok { background: var(--green-soft); border-color: #bcd8c6; color: #24513a; }
 .tag.is-strong { background: var(--indigo-soft); border-color: #c3cdf0; color: var(--indigo-deep); }
+.tag.is-source { margin-left: 4px; background: var(--paper); border-color: var(--line); color: var(--ink-soft); }
+.warning-cell { display: inline-flex; align-items: center; cursor: help; }
 
 /* ---------- 行内展开 ---------- */
 .detail { padding: 12px 14px 14px; }

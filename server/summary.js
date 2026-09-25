@@ -9,14 +9,12 @@ function overview(data) {
   const reservoirs = data.reservoirs.map((r) => {
     const own = data.levels.filter((l) => l.reservoirId === r.id).sort((a, b) => (a.date < b.date ? 1 : -1));
     const latest = own[0];
-    const latestInflowDate = data.inflows
-      .filter((x) => x.reservoirId === r.id)
-      .map((x) => x.date)
-      .sort()
-      .slice(-1)[0];
-    const inflow = data.inflows
-      .filter((x) => x.reservoirId === r.id && x.date === (latestInflowDate || ''))
-      .reduce((s, x) => s + Number(x.flow), 0);
+    // 预警三处同口径：入库流量取最新水位当天的合计
+    const inflow = latest
+      ? data.inflows
+          .filter((x) => x.reservoirId === r.id && x.date === latest.date)
+          .reduce((s, x) => s + Number(x.flow), 0)
+      : 0;
     const check = latest ? water.levelCheck(r, latest.level, latest.date, settings) : null;
     const warning = latest ? water.warningOf(r, latest.level, inflow, settings) : null;
     return {
@@ -32,6 +30,10 @@ function overview(data) {
       exceeded: check ? check.exceeded : false,
       floodSeason: check ? check.floodSeason : false,
       warning: warning ? warning.level : '',
+      warningDecidedBy: warning ? warning.decidedBy : 'none',
+      warningByLevel: warning ? warning.byLevel : '',
+      warningByFlow: warning ? warning.byFlow : '',
+      warningReason: warning ? warning.reason : '',
     };
   });
 

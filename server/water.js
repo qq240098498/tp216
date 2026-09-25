@@ -67,15 +67,81 @@ function levelCheck(reservoir, level, dateStr, settings) {
   return { limit, level: Number(level), over, exceeded: over > 0, floodSeason: inFloodSeason(dateStr, settings) };
 }
 
-// 预警等级：水位到警戒/汛限，或者入库流量超过门槛，都要提级
-function warningOf(reservoir, level, inflowFlow, settings) {
-  const levelValue = Number(level);
+// 预警等级从低到高：正常 < 注意 < 警戒 < 严重
+const GRADE_RANK = { 正常: 0, 注意: 1, 警戒: 2, 严重: 3 };
+
+// 水位单输入定级：到汛限定严重，到警戒定警戒，警戒水位以下 0.5m 定注意
+function warningByLevel(reservoir, level) {
+  const value = Number(level);
+  const floodLimit = Number(reservoir.floodLimitLevel);
+  const warningLine = Number(reservoir.warningLevel);
+  const attentionLine = store.round(warningLine - 0.5, 2);
+  if (value >= floodLimit) return { grade: '严重', thresholdName: '汛限水位', threshold: floodLimit };
+  if (value >= warningLine) return { grade: '警戒', thresholdName: '警戒水位', threshold: warningLine };
+  if (value >= attentionLine) return { grade: '注意', thresholdName: '警戒水位以下0.5m', threshold: attentionLine };
+  return { grade: '正常', thresholdName: '', threshold: null };
+}
+
+// 入库流量单输入定级：达到设置里的严重/注意门槛就提级（流量没有“警戒”档）
+function warningByFlow(inflowFlow, settings) {
   const flow = Number(inflowFlow);
-  let grade = '正常';
-  if (levelValue >= Number(reservoir.floodLimitLevel)) grade = '严重';
-  else if (levelValue >= Number(reservoir.warningLevel)) grade = '警戒';
-  else if (levelValue >= Number(reservoir.warningLevel) - 0.5) grade = '注意';
-  return { level: grade, byLevel: grade, inflowFlow: flow };
+  const serious = Number(settings.inflowSeriousFlow);
+  const attention = Number(settings.inflowAttentionFlow);
+  if (Number.isFinite(flow) && flow >= serious) return { grade: '严重', thresholdName: '入库严重流量', threshold: serious };
+  if (Number.isFinite(flow) && flow >= attention) return { grade: '注意', thresholdName: '入库注意流量', threshold: attention };
+  return { grade: '正常', thresholdName: '', threshold: null };
+}
+
+// 预警等级：水位和入库流量两个输入分别定级，哪个先到门槛就按哪个（取高者）；
+// 两边同级时同时记两个输入；并给出这次具体按哪个输入定的级
+function warningOf(reservoir, level, inflowFlow, settings) {
+  const value = Number(level);
+  const flow = Number.isFinite(Number(inflowFlow)) ? Number(inflowFlow) : 0;
+  const levelPart = warningByLevel(reservoir, value);
+  const flowPart = warningByFlow(flow, settings);
+  const levelRank = GRADE_RANK[levelPart.grade] || 0;
+  const flowRank = GRADE_RANK[flowPart.grade] || 0;
+
+  let grade;
+  let decidedBy;
+  if (flowRank > levelRank) {
+    grade = flowPart.grade;
+    decidedBy = 'flow';
+  } else if (levelRank > flowRank) {
+    grade = levelPart.grade;
+    decidedBy = 'level';
+  } else if (levelRank === 0) {
+    grade = '正常';
+    decidedBy = 'none';
+  } else {
+    grade = levelPart.grade;
+    decidedBy = 'both';
+  }
+
+  let reason;
+  if (decidedBy === 'flow') {
+    reason = '按入库流量 ' + flow + ' m³/s 定为' + grade + '（' + flowPart.thresholdName + '门槛 ' + flowPart.threshold + '）；同期水位 ' + value + ' m 只到“' + levelPart.grade + '”';
+  } else if (decidedBy === 'level') {
+    reason = '按水位 ' + value + ' m 定为' + grade + '（' + levelPart.thresholdName + ' ' + levelPart.threshold + ' m）；同期入库流量 ' + flow + ' m³/s 只到“' + flowPart.grade + '”';
+  } else if (decidedBy === 'both') {
+    reason = '水位与入库流量同时达到“' + grade + '”：水位 ' + value + ' m（' + levelPart.thresholdName + ' ' + levelPart.threshold + ' m）、入库流量 ' + flow + ' m³/s（' + flowPart.thresholdName + '门槛 ' + flowPart.threshold + '）';
+  } else {
+    reason = '水位 ' + value + ' m 与入库流量 ' + flow + ' m³/s 均未到提级门槛';
+  }
+
+  return {
+    level: grade,
+    decidedBy,
+    byLevel: levelPart.grade,
+    byFlow: flowPart.grade,
+    levelThreshold: levelPart.threshold,
+    levelThresholdName: levelPart.thresholdName,
+    flowThreshold: flowPart.threshold,
+    flowThresholdName: flowPart.thresholdName,
+    levelValue: value,
+    inflowFlow: flow,
+    reason,
+  };
 }
 
 // 时段水量平衡：入库水量 - 出库水量 - 损失 = 蓄变
@@ -137,5 +203,8 @@ module.exports = {
   limitLevelOf,
   levelCheck,
   warningOf,
+  warningByLevel,
+  warningByFlow,
+  GRADE_RANK,
   balance,
 };

@@ -11,6 +11,13 @@ function decorate(data, reservoir) {
     .filter((l) => l.reservoirId === reservoir.id)
     .sort((a, b) => (a.date < b.date ? 1 : -1))[0];
   const check = latest ? water.levelCheck(reservoir, latest.level, latest.date, data.settings) : null;
+  // 预警与「水位与流量」列表同口径：取最新水位当天的入库流量合计
+  const latestInflow = latest
+    ? data.inflows
+        .filter((x) => x.reservoirId === reservoir.id && x.date === latest.date)
+        .reduce((s, x) => s + Number(x.flow), 0)
+    : 0;
+  const warning = latest ? water.warningOf(reservoir, latest.level, latestInflow, data.settings) : null;
   const points = curve ? water.sortedPoints(curve) : [];
   const capacityAtNormal = curve ? water.capacityAt(curve, reservoir.normalLevel, data.settings) : 0;
   const capacityAtFloodLimit = curve ? water.capacityAt(curve, reservoir.floodLimitLevel, data.settings) : 0;
@@ -23,6 +30,12 @@ function decorate(data, reservoir) {
     floodCapacityGap: store.round(capacityAtNormal - capacityAtFloodLimit, 3),
     latestLevelDate: latest ? latest.date : '',
     latestLevel: latest ? Number(latest.level) : null,
+    latestInflow,
+    warning: warning ? warning.level : '',
+    warningDecidedBy: warning ? warning.decidedBy : 'none',
+    warningByLevel: warning ? warning.byLevel : '',
+    warningByFlow: warning ? warning.byFlow : '',
+    warningReason: warning ? warning.reason : '',
     today,
     limitNow: water.limitLevelOf(reservoir, today, data.settings),
     levelCheck: check,

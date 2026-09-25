@@ -66,14 +66,20 @@
     return '<span class="tag">—</span>';
   }
 
-  function warningTag(level) {
+  var WARNING_SOURCE_TEXT = { level: '按水位', flow: '按入库流量', both: '水位+流量' };
+
+  function warningTag(level, decidedBy, reason) {
     var text = dash(level);
     var cls = 'tag';
     if (level === '严重') cls = 'tag is-serious';
     else if (level === '警戒') cls = 'tag is-warn';
     else if (level === '注意') cls = 'tag is-strong';
     else if (level === '正常') cls = 'tag is-ok';
-    return '<span class="' + cls + '">' + esc(text) + '</span>';
+    var tip = reason ? ' title="' + esc(reason) + '"' : '';
+    var source = (level && level !== '正常' && WARNING_SOURCE_TEXT[decidedBy])
+      ? '<span class="tag is-source">' + esc(WARNING_SOURCE_TEXT[decidedBy]) + '</span>'
+      : '';
+    return '<span class="warning-cell"' + tip + '><span class="' + cls + '">' + esc(text) + '</span>' + source + '</span>';
   }
 
   function statusTag(status) {
@@ -298,7 +304,8 @@
     return '<li>水位记录 ' + ((state.levels || []).length) + ' 条</li>'
       + '<li>入库流量 ' + ((state.flows.inflow || []).length) + ' 条</li>'
       + '<li>出库流量 ' + ((state.flows.release || []).length) + ' 条</li>'
-      + '<li>当天入库、是否超限取接口</li>';
+      + '<li>当天入库、是否超限取接口</li>'
+      + '<li>预警 = 水位与入库流量两个输入各自定级后取高者</li>';
   }
 
   function updateWaterCounts() {
@@ -321,7 +328,7 @@
       html.push('</div>');
       html.push('<div class="side-block"><h3>口径</h3><ul class="side-list">');
       html.push('<li>限水位与是否超限取接口</li>');
-      html.push('<li>预警等级取接口</li>');
+      html.push('<li>预警按水位与入库流量分别定级、取高者，接口给出本次按哪个输入定的</li>');
       html.push('<li>点现状表某行去「水库」展开</li>');
       html.push('</ul></div>');
     } else if (view === 'reservoirs') {
@@ -441,7 +448,7 @@
         + '<td class="num">' + esc(numText(r.limit)) + '</td>'
         + '<td class="num">' + esc(numText(r.over)) + '</td>'
         + '<td class="num">' + esc(numText(r.inflow)) + '</td>'
-        + '<td>' + warningTag(r.warning) + '</td>'
+        + '<td>' + warningTag(r.warning, r.warningDecidedBy, r.warningReason) + '</td>'
         + '<td>' + boolTag(r.exceeded) + '</td>'
         + '</tr>';
     }).join('');
@@ -510,6 +517,12 @@
       ['口径日期', d.today],
       ['最新水位', d.latestLevel],
       ['最新水位日期', d.latestLevelDate],
+      ['最新水位当天入库', d.latestInflow],
+      ['预警等级', d.warning],
+      ['本次定级输入', WARNING_SOURCE_TEXT[d.warningDecidedBy] || '—'],
+      ['水位单判等级', d.warningByLevel],
+      ['入库流量单判等级', d.warningByFlow],
+      ['定级依据', d.warningReason],
       ['水位超出', d.over === null || d.over === undefined ? lc.over : d.over],
       ['是否超限', lc.exceeded === undefined ? '' : yesNo(lc.exceeded)],
       ['是否汛期', lc.floodSeason === undefined ? '' : yesNo(lc.floodSeason)],
@@ -636,7 +649,7 @@
         + '<td>' + esc(yesNo(l.floodSeason)) + '</td>'
         + '<td>' + boolTag(l.exceeded) + '</td>'
         + '<td class="num">' + esc(numText(l.inflow)) + '</td>'
-        + '<td>' + warningTag(l.warning) + '</td>'
+        + '<td>' + warningTag(l.warning, l.warningDecidedBy, l.warningReason) + '</td>'
         + '<td><span class="tag">展开</span></td>'
         + '</tr>');
       if (expanded) {
@@ -651,6 +664,10 @@
           ['是否超限（接口）', yesNo(l.exceeded)],
           ['当天入库（接口）', l.inflow],
           ['预警等级（接口）', l.warning],
+          ['水位单判等级（接口）', l.warningByLevel],
+          ['入库流量单判等级（接口）', l.warningByFlow],
+          ['本次定级输入', WARNING_SOURCE_TEXT[l.warningDecidedBy] || '—'],
+          ['定级依据', l.warningReason],
           ['备注', l.remark]
         ];
         levelHtml.push('<tr class="detail-row" data-detail-for="' + esc(l.id) + '"><td colspan="' + levelColspan + '"><div class="detail">'
