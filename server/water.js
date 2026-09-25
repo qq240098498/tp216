@@ -67,15 +67,31 @@ function levelCheck(reservoir, level, dateStr, settings) {
   return { limit, level: Number(level), over, exceeded: over > 0, floodSeason: inFloodSeason(dateStr, settings) };
 }
 
-// 预警等级：水位到警戒/汛限，或者入库流量超过门槛，都要提级
+// 预警等级：水位到警戒/汛限要提级，入库流量到注意/严重门槛也要提级。
+// 两个输入都看，哪一侧更重就按哪一侧定级，并记下这一次是按哪个输入定的。
+const WARNING_ORDER = ['正常', '注意', '警戒', '严重'];
+
 function warningOf(reservoir, level, inflowFlow, settings) {
   const levelValue = Number(level);
   const flow = Number(inflowFlow);
-  let grade = '正常';
-  if (levelValue >= Number(reservoir.floodLimitLevel)) grade = '严重';
-  else if (levelValue >= Number(reservoir.warningLevel)) grade = '警戒';
-  else if (levelValue >= Number(reservoir.warningLevel) - 0.5) grade = '注意';
-  return { level: grade, byLevel: grade, inflowFlow: flow };
+  // 水位这一侧
+  let byLevel = '正常';
+  if (levelValue >= Number(reservoir.floodLimitLevel)) byLevel = '严重';
+  else if (levelValue >= Number(reservoir.warningLevel)) byLevel = '警戒';
+  else if (levelValue >= Number(reservoir.warningLevel) - 0.5) byLevel = '注意';
+  // 入库流量这一侧
+  let byInflow = '正常';
+  if (flow >= Number(settings.inflowSeriousFlow)) byInflow = '严重';
+  else if (flow >= Number(settings.inflowAttentionFlow)) byInflow = '注意';
+  // 取更重的一侧定级
+  const levelRank = WARNING_ORDER.indexOf(byLevel);
+  const inflowRank = WARNING_ORDER.indexOf(byInflow);
+  const grade = WARNING_ORDER[Math.max(levelRank, inflowRank)];
+  let by = '';
+  if (levelRank > 0 && levelRank === inflowRank) by = '水位+入库流量';
+  else if (levelRank > inflowRank) by = '水位';
+  else if (inflowRank > levelRank) by = '入库流量';
+  return { level: grade, by, byLevel, byInflow, inflowFlow: flow };
 }
 
 // 时段水量平衡：入库水量 - 出库水量 - 损失 = 蓄变

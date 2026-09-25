@@ -32,6 +32,7 @@ function overview(data) {
       exceeded: check ? check.exceeded : false,
       floodSeason: check ? check.floodSeason : false,
       warning: warning ? warning.level : '',
+      warningBy: warning ? warning.by : '',
     };
   });
 

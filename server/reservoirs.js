@@ -11,6 +11,15 @@ function decorate(data, reservoir) {
     .filter((l) => l.reservoirId === reservoir.id)
     .sort((a, b) => (a.date < b.date ? 1 : -1))[0];
   const check = latest ? water.levelCheck(reservoir, latest.level, latest.date, data.settings) : null;
+  const latestInflowDate = data.inflows
+    .filter((x) => x.reservoirId === reservoir.id)
+    .map((x) => x.date)
+    .sort()
+    .slice(-1)[0];
+  const inflow = data.inflows
+    .filter((x) => x.reservoirId === reservoir.id && x.date === (latestInflowDate || ''))
+    .reduce((s, x) => s + Number(x.flow), 0);
+  const warning = latest ? water.warningOf(reservoir, latest.level, inflow, data.settings) : null;
   const points = curve ? water.sortedPoints(curve) : [];
   const capacityAtNormal = curve ? water.capacityAt(curve, reservoir.normalLevel, data.settings) : 0;
   const capacityAtFloodLimit = curve ? water.capacityAt(curve, reservoir.floodLimitLevel, data.settings) : 0;
@@ -23,6 +32,9 @@ function decorate(data, reservoir) {
     floodCapacityGap: store.round(capacityAtNormal - capacityAtFloodLimit, 3),
     latestLevelDate: latest ? latest.date : '',
     latestLevel: latest ? Number(latest.level) : null,
+    inflow,
+    warning: warning ? warning.level : '',
+    warningBy: warning ? warning.by : '',
     today,
     limitNow: water.limitLevelOf(reservoir, today, data.settings),
     levelCheck: check,

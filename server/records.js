@@ -26,6 +26,7 @@ function listLevels(data, query) {
         floodSeason: check ? check.floodSeason : false,
         inflow,
         warning: warning ? warning.level : '',
+        warningBy: warning ? warning.by : '',
       });
     })
     .sort((a, b) => (a.date === b.date ? (a.reservoirId < b.reservoirId ? -1 : 1) : a.date < b.date ? 1 : -1));

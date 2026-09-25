@@ -298,7 +298,8 @@
     return '<li>水位记录 ' + ((state.levels || []).length) + ' 条</li>'
       + '<li>入库流量 ' + ((state.flows.inflow || []).length) + ' 条</li>'
       + '<li>出库流量 ' + ((state.flows.release || []).length) + ' 条</li>'
-      + '<li>当天入库、是否超限取接口</li>';
+      + '<li>当天入库、是否超限取接口</li>'
+      + '<li>预警取接口：水位与入库流量哪个先到门槛就按哪个定级，定级依据一并返回</li>';
   }
 
   function updateWaterCounts() {
@@ -321,7 +322,7 @@
       html.push('</div>');
       html.push('<div class="side-block"><h3>口径</h3><ul class="side-list">');
       html.push('<li>限水位与是否超限取接口</li>');
-      html.push('<li>预警等级取接口</li>');
+      html.push('<li>预警等级取接口：水位与入库流量哪个先到门槛就按哪个定级</li>');
       html.push('<li>点现状表某行去「水库」展开</li>');
       html.push('</ul></div>');
     } else if (view === 'reservoirs') {
@@ -338,6 +339,7 @@
       html.push('</div>');
       html.push('<div class="side-block"><h3>口径</h3><ul class="side-list">');
       html.push('<li>限水位 = 汛期取汛限、非汛期取正常蓄水位（接口给出）</li>');
+      html.push('<li>预警等级取接口：水位与入库流量哪个先到门槛就按哪个定级</li>');
       html.push('<li>曲线点表可编辑后保存</li>');
       html.push('</ul></div>');
     } else if (view === 'water') {
@@ -442,6 +444,7 @@
         + '<td class="num">' + esc(numText(r.over)) + '</td>'
         + '<td class="num">' + esc(numText(r.inflow)) + '</td>'
         + '<td>' + warningTag(r.warning) + '</td>'
+        + '<td>' + esc(dash(r.warningBy)) + '</td>'
         + '<td>' + boolTag(r.exceeded) + '</td>'
         + '</tr>';
     }).join('');
@@ -515,6 +518,9 @@
       ['是否汛期', lc.floodSeason === undefined ? '' : yesNo(lc.floodSeason)],
       ['检查用限水位', lc.limit],
       ['检查用水位', lc.level],
+      ['最新入库流量（接口）', d.inflow],
+      ['预警等级（接口）', d.warning],
+      ['定级依据（接口）', d.warningBy],
       ['曲线点数', d.pointCount],
       ['曲线复核日期', d.curveVerifiedOn],
       ['正常蓄水位对应库容', d.capacityAtNormal],
@@ -637,6 +643,7 @@
         + '<td>' + boolTag(l.exceeded) + '</td>'
         + '<td class="num">' + esc(numText(l.inflow)) + '</td>'
         + '<td>' + warningTag(l.warning) + '</td>'
+        + '<td>' + esc(dash(l.warningBy)) + '</td>'
         + '<td><span class="tag">展开</span></td>'
         + '</tr>');
       if (expanded) {
@@ -651,6 +658,7 @@
           ['是否超限（接口）', yesNo(l.exceeded)],
           ['当天入库（接口）', l.inflow],
           ['预警等级（接口）', l.warning],
+          ['定级依据（接口）', l.warningBy],
           ['备注', l.remark]
         ];
         levelHtml.push('<tr class="detail-row" data-detail-for="' + esc(l.id) + '"><td colspan="' + levelColspan + '"><div class="detail">'
